@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/frank3950/cthun"
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,27 +14,25 @@ import (
 )
 
 type exporter struct {
-	//gg_lag_at_chkpt_seconds     *prometheus.Desc
-	//gg_time_since_chkpt_seconds *prometheus.Desc
-	gg_dirdat_bytes *prometheus.Desc
+	gg_lag_at_chkpt_seconds     *prometheus.Desc
+	gg_time_since_chkpt_seconds *prometheus.Desc
+	gg_dirdat_bytes             *prometheus.Desc
 }
 
 func new() *exporter {
 	return &exporter{
-		/*
-			gg_lag_at_chkpt_seconds: prometheus.NewDesc(
-				"gg_lag_at_chkpt_seconds",
-				"Lag at Chkpt",
-				[]string{"name"},
-				nil,
-			),
-			gg_time_since_chkpt_seconds: prometheus.NewDesc(
-				"gg_time_since_chkpt_seconds",
-				"Time Since Chkpt",
-				[]string{"name"},
-				nil,
-			),
-		*/
+		gg_lag_at_chkpt_seconds: prometheus.NewDesc(
+			"gg_lag_at_chkpt_seconds",
+			"Lag at Chkpt",
+			[]string{"name"},
+			nil,
+		),
+		gg_time_since_chkpt_seconds: prometheus.NewDesc(
+			"gg_time_since_chkpt_seconds",
+			"Time Since Chkpt",
+			[]string{"name"},
+			nil,
+		),
 		gg_dirdat_bytes: prometheus.NewDesc(
 			"gg_dirdat_bytes",
 			"Size of dirdat firectory",
@@ -44,22 +43,57 @@ func new() *exporter {
 }
 
 func (e *exporter) Describe(ch chan<- *prometheus.Desc) {
-	//ch <- e.gg_lag_at_chkpt_seconds
-	//ch <- e.gg_time_since_chkpt_seconds
+	ch <- e.gg_lag_at_chkpt_seconds
+	ch <- e.gg_time_since_chkpt_seconds
 	ch <- e.gg_dirdat_bytes
 }
+
 func (e *exporter) Collect(ch chan<- prometheus.Metric) {
+	var wg sync.WaitGroup
 	i := cthun.ClassicGG{Home: *home}
 	cthun.SetupGG(&i)
-	s, err := cthun.GetGGDatSize(i)
-	if err != nil {
-		fmt.Println(err)
-	}
-	ch <- prometheus.MustNewConstMetric(
-		e.gg_dirdat_bytes,
-		prometheus.GaugeValue,
-		float64(s),
-	)
+	m1, m2 := cthun.GetGGLag(i)
+
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		s, err := cthun.GetGGDatSize(i)
+		if err != nil {
+			fmt.Println(err)
+		}
+		ch <- prometheus.MustNewConstMetric(
+			e.gg_dirdat_bytes,
+			prometheus.GaugeValue,
+			float64(s),
+		)
+	}()
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		for k, v := range m1 {
+			ch <- prometheus.MustNewConstMetric(
+				e.gg_lag_at_chkpt_seconds,
+				prometheus.GaugeValue,
+				float64(v),
+				k,
+			)
+		}
+	}()
+
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		for k, v := range m2 {
+			ch <- prometheus.MustNewConstMetric(
+				e.gg_time_since_chkpt_seconds,
+				prometheus.GaugeValue,
+				float64(v),
+				k,
+			)
+		}
+	}()
+
+	wg.Wait()
 }
 
 var (
