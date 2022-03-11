@@ -17,7 +17,7 @@ builds:
   targets:
   - linux_amd64
   dir: .
-  main: ./cmd/
+  main: .
   ldflags:
   - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
     -X main.builtBy=goreleaser
