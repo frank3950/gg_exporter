@@ -17,6 +17,7 @@ type exporter struct {
 	gg_lag_at_chkpt_seconds     *prometheus.Desc
 	gg_time_since_chkpt_seconds *prometheus.Desc
 	gg_dirdat_bytes             *prometheus.Desc
+	gg_avg_ops_per_seconds      *prometheus.Desc
 }
 
 func new() *exporter {
@@ -53,9 +54,8 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 	i := cthun.ClassicGG{Home: *home}
 	cthun.SetupGG(&i)
 	m1, m2 := cthun.GetGGLag(i)
-
+	wg.Add(3)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		s, err := cthun.GetGGDatSize(i)
 		if err != nil {
@@ -68,7 +68,6 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 		)
 	}()
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		for k, v := range m1 {
 			ch <- prometheus.MustNewConstMetric(
@@ -81,7 +80,6 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 	}()
 
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		for k, v := range m2 {
 			ch <- prometheus.MustNewConstMetric(
