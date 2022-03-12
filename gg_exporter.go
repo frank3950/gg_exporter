@@ -53,7 +53,7 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 	var wg sync.WaitGroup
 	i := cthun.ClassicGG{Home: *home}
 	cthun.SetupGG(&i)
-	m1, m2 := cthun.GetGGLag(i)
+	m1, m2 := cthun.GetGGLag(&i)
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
