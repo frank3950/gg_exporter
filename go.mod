@@ -3,7 +3,7 @@ module github.com/frank3950/gg_exporter
 go 1.17
 
 require (
-	github.com/frank3950/cthun v1.2.2
+	github.com/frank3950/cthun v1.2.3
 	github.com/prometheus/client_golang v1.12.1
 )
 
